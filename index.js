@@ -12,7 +12,7 @@ const port = 3003;
 // Create Sequelize instance
 const sequelize = new Sequelize({
   dialect: "sqlite",
-  storage: "./blogAndForm.sqlite",
+  storage: "./teste.sqlite",
 });
 
 // Define BlogPost model
