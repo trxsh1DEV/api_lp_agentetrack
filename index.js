@@ -63,6 +63,10 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage: storage });
 
+app.get("/", (req, res) => {
+  res.json({ message: "OK" });
+});
+
 // CRUD routes for BlogPost model
 app.get("/posts", async (req, res) => {
   try {
