@@ -3,7 +3,7 @@ const fs = require("fs");
 const path = require("path");
 
 // Caminhos do banco de dados e do CSV
-const dbPath = path.join(__dirname, "blogAndForm.sqlite"); // Ajustando para o caminho correto
+const dbPath = path.join(__dirname, "lp_agentetrack.sqlite"); // Ajustando para o caminho correto
 const csvPath = "/var/www/html/leads.csv";
 
 // Conectar ao banco SQLite
