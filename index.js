@@ -19,10 +19,20 @@ const sequelize = new Sequelize({
 class BlogPost extends Model {}
 BlogPost.init(
   {
-    title: DataTypes.STRING,
+    title: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
     image: DataTypes.STRING,
-    content: DataTypes.TEXT,
+    content: {
+      type: DataTypes.TEXT,
+      allowNull: false,
+    },
     category: DataTypes.STRING,
+    keyword: DataTypes.STRING,
+    metaDescription: DataTypes.STRING(160),
+    imageDescription: DataTypes.STRING,
+    externalLinks: DataTypes.TEXT, // URLs separadas por vírgula
     createdAt: {
       type: DataTypes.DATE,
       defaultValue: DataTypes.NOW,
@@ -31,25 +41,13 @@ BlogPost.init(
   { sequelize, modelName: "blogPost" }
 );
 
-// Define FormSubmission model
-class FormSubmission extends Model {}
-FormSubmission.init(
-  {
-    fullName: DataTypes.STRING,
-    phone: DataTypes.STRING,
-    position: DataTypes.STRING,
-    email: DataTypes.STRING,
-  },
-  { sequelize, modelName: "formSubmission" }
-);
-
 // Sync models with database
 sequelize.sync();
 
-// Middleware for parsing request body
+// Middleware
 app.use(cors());
-app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
 
 // Serve static files from the "uploads" directory
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
@@ -67,59 +65,116 @@ const upload = multer({ storage: storage });
 
 // CRUD routes for BlogPost model
 app.get("/posts", async (req, res) => {
-  const posts = await BlogPost.findAll();
-  res.json(posts);
+  try {
+    const posts = await BlogPost.findAll();
+    res.json(posts);
+  } catch (error) {
+    res.status(500).json({ error: "Erro ao buscar posts" });
+  }
 });
 
 app.get("/posts/:id", async (req, res) => {
-  const post = await BlogPost.findByPk(req.params.id);
-  res.json(post);
+  try {
+    const post = await BlogPost.findByPk(req.params.id);
+    if (!post) {
+      return res.status(404).json({ error: "Post não encontrado" });
+    }
+    res.json(post);
+  } catch (error) {
+    res.status(500).json({ error: "Erro ao buscar o post" });
+  }
 });
 
 app.post("/posts", upload.single("image"), async (req, res) => {
-  const { title, content, category } = req.body;
-  const image = req.file
-    ? `${process.env.BASE_URL}/uploads/${req.file.filename}`
-    : null;
-  const post = await BlogPost.create({ title, image, content, category });
-  res.json(post);
+  try {
+    const {
+      title,
+      content,
+      category,
+      keyword,
+      metaDescription,
+      imageDescription,
+      externalLinks,
+    } = req.body;
+    const image = req.file
+      ? `${process.env.BASE_URL}/uploads/${req.file.filename}`
+      : null;
+
+    if (!title || !content) {
+      return res
+        .status(400)
+        .json({ error: "Título e conteúdo são obrigatórios" });
+    }
+
+    const post = await BlogPost.create({
+      title,
+      content,
+      category,
+      keyword,
+      metaDescription,
+      imageDescription,
+      externalLinks,
+      image,
+    });
+
+    res.status(201).json(post);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Erro ao criar o post" });
+  }
 });
 
 app.put("/posts/:id", upload.single("image"), async (req, res) => {
-  const post = await BlogPost.findByPk(req.params.id);
-  if (post) {
-    const { title, content, category } = req.body;
-    const image = req.file ? `/uploads/${req.file.filename}` : post.image;
-    await post.update({ title, image, content, category });
+  try {
+    const {
+      title,
+      content,
+      category,
+      keyword,
+      metaDescription,
+      imageDescription,
+      externalLinks,
+    } = req.body;
+    const post = await BlogPost.findByPk(req.params.id);
+
+    if (!post) {
+      return res.status(404).json({ error: "Post não encontrado" });
+    }
+
+    post.title = title ?? post.title;
+    post.content = content ?? post.content;
+    post.category = category ?? post.category;
+    post.keyword = keyword ?? post.keyword;
+    post.metaDescription = metaDescription ?? post.metaDescription;
+    post.imageDescription = imageDescription ?? post.imageDescription;
+    post.externalLinks = externalLinks ?? post.externalLinks;
+
+    if (req.file) {
+      post.image = `${process.env.BASE_URL}/uploads/${req.file.filename}`;
+    }
+
+    await post.save();
     res.json(post);
-  } else {
-    res.status(404).json({ message: "Post not found" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Erro ao atualizar o post" });
   }
 });
 
 app.delete("/posts/:id", async (req, res) => {
-  const post = await BlogPost.findByPk(req.params.id);
-  if (post) {
+  try {
+    const post = await BlogPost.findByPk(req.params.id);
+    if (!post) {
+      return res.status(404).json({ error: "Post não encontrado" });
+    }
     await post.destroy();
-    res.json({ message: "Post deleted" });
-  } else {
-    res.status(404).json({ message: "Post not found" });
+    res.json({ message: "Post excluído com sucesso" });
+  } catch (error) {
+    res.status(500).json({ error: "Erro ao excluir o post" });
   }
-});
-
-// Route to handle form submissions
-app.post("/form", async (req, res) => {
-  const { fullName, phone, position, email } = req.body;
-  const formSubmission = await FormSubmission.create({
-    fullName,
-    phone,
-    position,
-    email,
-  });
-  res.json(formSubmission);
 });
 
 // Start server
 app.listen(port, () => {
-  console.log(`Server listening on port ${port}`);
+  console.log(`Server running at http://localhost:${port}`);
 });
